@@ -1,0 +1,1125 @@
+VERSION 5.00
+Begin VB.UserDocument UserDoc 
+   Appearance      =   0  'Flat
+   AutoRedraw      =   -1  'True
+   BackColor       =   &H00000000&
+   ClientHeight    =   6375
+   ClientLeft      =   0
+   ClientTop       =   0
+   ClientWidth     =   2520
+   BeginProperty Font 
+      Name            =   "Arial"
+      Size            =   12
+      Charset         =   0
+      Weight          =   400
+      Underline       =   0   'False
+      Italic          =   0   'False
+      Strikethrough   =   0   'False
+   EndProperty
+   HScrollSmallChange=   15
+   ScaleHeight     =   425
+   ScaleMode       =   3  'Pixel
+   ScaleWidth      =   168
+   ScrollBars      =   0  'None
+   VScrollSmallChange=   15
+   Begin VB.TextBox txtInit 
+      Alignment       =   2  'Center
+      BeginProperty Font 
+         Name            =   "Arial"
+         Size            =   8.25
+         Charset         =   0
+         Weight          =   400
+         Underline       =   0   'False
+         Italic          =   0   'False
+         Strikethrough   =   0   'False
+      EndProperty
+      Height          =   315
+      Left            =   225
+      TabIndex        =   3
+      Text            =   "1"
+      Top             =   6075
+      Width           =   750
+   End
+   Begin VB.TextBox txtLines 
+      Alignment       =   2  'Center
+      BeginProperty Font 
+         Name            =   "Arial"
+         Size            =   8.25
+         Charset         =   0
+         Weight          =   400
+         Underline       =   0   'False
+         Italic          =   0   'False
+         Strikethrough   =   0   'False
+      EndProperty
+      Height          =   315
+      Left            =   1440
+      TabIndex        =   1
+      Text            =   "500"
+      Top             =   6075
+      Width           =   750
+   End
+   Begin VB.PictureBox PicGraph 
+      Appearance      =   0  'Flat
+      AutoRedraw      =   -1  'True
+      BackColor       =   &H00000000&
+      ForeColor       =   &H00808080&
+      Height          =   5850
+      Left            =   0
+      ScaleHeight     =   388
+      ScaleMode       =   3  'Pixel
+      ScaleWidth      =   166
+      TabIndex        =   0
+      TabStop         =   0   'False
+      Top             =   0
+      Width           =   2520
+   End
+   Begin VB.Timer TimUpdate 
+      Interval        =   1500
+      Left            =   2670
+      Top             =   45
+   End
+   Begin VB.Timer TimForceRefresh 
+      Enabled         =   0   'False
+      Interval        =   500
+      Left            =   2670
+      Top             =   495
+   End
+   Begin VB.Label Label2 
+      AutoSize        =   -1  'True
+      BackStyle       =   0  'Transparent
+      Caption         =   "Initial Line"
+      BeginProperty Font 
+         Name            =   "Arial"
+         Size            =   8.25
+         Charset         =   0
+         Weight          =   400
+         Underline       =   0   'False
+         Italic          =   0   'False
+         Strikethrough   =   0   'False
+      EndProperty
+      ForeColor       =   &H00FFFFFF&
+      Height          =   210
+      Left            =   255
+      TabIndex        =   4
+      Top             =   5880
+      Width           =   690
+   End
+   Begin VB.Label Label1 
+      AutoSize        =   -1  'True
+      BackStyle       =   0  'Transparent
+      Caption         =   "Show Lines"
+      BeginProperty Font 
+         Name            =   "Arial"
+         Size            =   8.25
+         Charset         =   0
+         Weight          =   400
+         Underline       =   0   'False
+         Italic          =   0   'False
+         Strikethrough   =   0   'False
+      EndProperty
+      ForeColor       =   &H00FFFFFF&
+      Height          =   210
+      Left            =   1380
+      TabIndex        =   2
+      Top             =   5880
+      Width           =   870
+   End
+   Begin VB.Menu mnuMain 
+      Caption         =   "mnuMain"
+      Visible         =   0   'False
+      Begin VB.Menu mnuMark 
+         Caption         =   "Mark #1"
+         Index           =   1
+      End
+      Begin VB.Menu mnuMark 
+         Caption         =   "Mark #2"
+         Index           =   2
+      End
+      Begin VB.Menu mnuMark 
+         Caption         =   "Mark #3"
+         Index           =   3
+      End
+      Begin VB.Menu mnuMark 
+         Caption         =   "Line -------"
+         Index           =   4
+      End
+      Begin VB.Menu mnuSep 
+         Caption         =   "-"
+         Visible         =   0   'False
+      End
+      Begin VB.Menu MnuOnTop 
+         Caption         =   "On Top"
+         Visible         =   0   'False
+      End
+   End
+End
+Attribute VB_Name = "UserDoc"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = True
+Option Explicit
+
+'===========================================================================================
+'Document Map v1.5                                    By Pedro Aguirrezabal (Shagratt@ARG)
+'===========================================================================================
+'It display graph colored representation of the current code window wich can be clicked to navigate from
+'one point of the code to another instantly
+'It shows what part of the code you're seeing in the editor.
+'Its flicker free!
+'It has checks to not redraw when there is no code/views changes (its fast and not cpu intensive)
+'Default Colors:
+'   -Grey: Normal code
+'   -Light Grey: Begin of sub/function
+'   -Green: Comments
+'
+'Left Click jump to that part of code.
+'Right click brings a menu to add/remove marks:
+'Cause I dont know how to access the Flags/Breakpoints I added a few special delimiters
+'that draw visual clues on the Document Map. (Must be the first chars in the line, except TODO)
+'
+'   '*-  = Full purple line
+'   '*1  = Red mark on the right
+'   '*2  = Yellow mark on the right
+'   '*3  = Cyan mark on the right
+'   'TODO: = Shorter green mark on the right
+'
+'   (Marks are part of the code so, unlike bookmarks, they are saved)
+'
+' IMPORTANT: While debuggin AddIns from the IDE I lost functionality of the right mouse (Definition,Last position,etc.)
+' so before compiling do a backup of your registry key HKCU\Software\Microsoft\Visual Basic\6.0\UI
+' If this happens to you deleting that key and reopening vb6 restore the lost functionality
+' This does not happen if you compile the DLL and use the AddIn normally.
+'
+'
+' Updates/Comments: http://www.vbforums.com/showthread.php?876983
+'
+'
+'
+'Changelog
+'=========
+'v1.5b (18/05/21)
+'   + now you can indicate the number of lines to show to review more easy extensive code.
+'   +
+
+'v1.5 (20/08/19)
+'   +Right mouse menu integration on VB Ide (to add marks)
+'   +New Toolbar Icon
+'
+'v1.4 (06/08/19)
+'   +Added a refresh to the UserDocument after redrawing wich make it more responsive using a compiled dll while
+'    moving the mouse with the left button down.
+'   +Recicle AddIn toolbar menu (only useful if youre editing the addin and stop it without removing it from
+'    another proyect.
+'
+'v1.3 (04/08/19)
+'   +Better drawing representation (with spaces, no more just lines)
+'   +No more double height lines on short documents (double line space instead)
+'
+'v1.2 (28/07/19)
+'   +Integrated in VB6 Ide (No more a floating on-top form)
+'   +Full analisys for marks (before was skipping lines if code was too big)
+'   +Reworked some logics for faster code
+'
+'v1.1 (26/07/19)
+'   +Change focus back to project so mousewheel works after clicking document map
+'   +Moving while keeping the mouse pressed allow smooth scrolling through the document map
+'   +Right mouse menu give option to set / remove marks
+'   +Codeview are now centered on the click
+'   +While mouse button held it show the name of Sub / Fuction in that part of code
+'   +Support for CodeSmart bookmarks
+'
+'v1.0 (24/07/19)
+'   +Basic version as proof of concept (it just 'works') and is my first AddIn. There is a lot
+'    of room for improvement.
+
+
+
+
+
+'for OnTop
+Private Declare Function SetWindowPos Lib "user32" (ByVal hWnd As Long, ByVal hWndInsertAfter As Long, ByVal X As Long, ByVal Y As Long, ByVal cx As Long, ByVal cy As Long, ByVal wFlags As Long) As Long
+
+Private Type RECT
+        Left As Long
+        Top As Long
+        Right As Long
+        Bottom As Long
+End Type
+Private Declare Function DrawText Lib "user32" Alias "DrawTextA" (ByVal hDC As Long, ByVal lpStr As String, ByVal nCount As Long, lpRect As RECT, ByVal wFormat As Long) As Long
+Private Const DT_WORDBREAK = &H10
+
+'instance of the VB Environment
+Public VBInstance As VBIDE.VBE
+Public Connect As Connect
+'Colors
+Dim cColorText&, cColorComment&, cColorSubs
+Dim cColorMark1&, cColorMark2&, cColorMark3&, cColorMark4FullRow&
+Dim cColorMarkTodo&
+
+Dim GraphStep!, GraphMult!, gDrawWidth& 'For detecting line on click and graphic drawing scale
+Dim TotalLines&, CurrentTop&, ModuleName$ 'Total number of lines of code to detect unneeded redraws
+Dim bMouseHeldDown As Boolean
+Dim InitLine&     '-/> AxioUK
+
+Dim ClickY! 'mouse Y clicked
+
+Dim gMaxWidth&, pMarkStartLong&, pMarkStart& 'For calculating drawing width on size changes
+
+
+'=============================
+' LOAD (Entry point in form)
+'=============================
+Public Sub UserDocumentLoad()
+On Error GoTo Err:
+    
+    PicGraph.Left = 400
+    PicGraph.Visible = False
+
+
+    cColorText = RGB(100, 100, 100) ' grey
+    cColorComment = RGB(0, 78, 0)    ' Green
+    cColorSubs = RGB(160, 160, 170) ' lighter grey
+    
+    cColorMark1& = RGB(200, 0, 0)  ' Red
+    cColorMark2& = RGB(200, 200, 0) 'Yellow
+    cColorMark3& = RGB(0, 200, 200)  'Cyan
+    cColorMarkTodo& = RGB(0, 255, 0) 'Green
+    cColorMark4FullRow& = RGB(200, 100, 200)
+
+    'MnuOnTop_Click
+    DrawLines
+    
+    'Hook
+    Call WheelHook(hWnd)
+
+    Exit Sub
+Err:
+    TimUpdate.Enabled = False
+    MsgBox "Document Map Error loading:" & Err.Description
+End Sub
+
+
+Private Sub UserDocument_Unload(Cancel As Integer)
+    'Release Hook
+    Call WheelUnHook(hWnd)
+End Sub
+
+Private Sub txtInit_Change()
+DrawLines
+End Sub
+
+Private Sub txtInit_KeyPress(KeyAscii As Integer)
+' El 48 es 0 y el 57 es 9, 127 es SUPR y 8 es Backspace
+If KeyAscii >= 48 And KeyAscii <= 57 Or KeyAscii = 127 Or KeyAscii = 8 Then
+  DrawLines
+Else
+  KeyAscii = 0
+End If
+End Sub
+
+Private Sub txtLines_Change()
+DrawLines
+End Sub
+
+Private Sub txtLines_KeyPress(KeyAscii As Integer)
+' El 48 es 0 y el 57 es 9, 127 es SUPR y 8 es Backspace
+If KeyAscii >= 48 And KeyAscii <= 57 Or KeyAscii = 127 Or KeyAscii = 8 Then
+  DrawLines
+Else
+  KeyAscii = 0
+End If
+End Sub
+
+'================================
+'Show menu on right click
+'================================
+Private Sub UserDocument_MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)
+    If (Button = 2) Then
+        ClickY = Y
+        CheckForMarks
+        PopupMenu mnuMain
+    ElseIf (Button = 1) Then
+        PicGraphScroll Y
+    End If
+End Sub
+
+'================================
+'Continuous scrolling
+'================================
+Private Sub UserDocument_MouseMove(Button As Integer, Shift As Integer, X As Single, Y As Single)
+    If (Button = 1) Then
+        bMouseHeldDown = True
+        ClickY = IIf(Y < 0, 0, Y)
+        PicGraphScroll IIf(Y < 0, 0, Y)
+        DoEvents
+    End If
+End Sub
+
+Private Sub UserDocument_MouseUp(Button As Integer, Shift As Integer, X As Single, Y As Single)
+    bMouseHeldDown = False
+End Sub
+
+Public Sub MouseWheel(ByVal MouseKeys As Long, ByVal Rotation As Long, ByVal Xpos As Long, ByVal Ypos As Long)
+    PassFocusToIde
+    DrawLines
+    TimForceRefresh.Enabled = True
+End Sub
+
+Public Sub PassFocusToIde()
+    If Not (VBInstance.ActiveCodePane.Window Is Nothing) Then
+        On Error Resume Next
+        VBInstance.ActiveCodePane.Window.SetFocus
+    End If
+End Sub
+
+'========================
+'Form Resize
+'========================
+Private Sub UserDocument_Resize()
+On Error Resume Next
+'    'Min Size
+    UserDocument.MinHeight = 180
+    UserDocument.MinWidth = 168
+
+    'PicGraph vertical scaling
+    'PicGraph.Height = UserDocument.ViewportHeight '   Height / Screen.TwipsPerPixelY
+    
+    txtLines.Top = UserDocument.ViewportHeight - 22
+    txtInit.Top = UserDocument.ViewportHeight - 22
+    Label1.Top = UserDocument.ViewportHeight - 38
+    Label2.Top = UserDocument.ViewportHeight - 38
+    PicGraph.Height = UserDocument.ViewportHeight - 40
+    
+    'Calculate the shortest width
+    If (UserDocument.ViewportWidth < PicGraph.Width) Then
+        gMaxWidth = UserDocument.ViewportWidth
+    Else
+        gMaxWidth = PicGraph.Width
+    End If
+    
+    'Calculate drawing limits
+    pMarkStartLong = gMaxWidth - (gMaxWidth / 5)
+    pMarkStart = gMaxWidth - (gMaxWidth / 10)
+    
+    'Force redraw after a interval to not keep updating constantly
+    TimForceRefresh.Enabled = True
+End Sub
+
+'No more needed now that it works as a Ide Panel
+''=====================================
+''Colapse/form on double click
+''=====================================
+''Note: Expanding is done by windows itself when double clicking the top line of the title
+'Private Sub UserDocument_DblClick()
+'    bIgnoreSizeChange = True
+'    If (Me.Height = 0) Then
+'        Me.Height = Screen.Height
+'        Me.Top = 0
+'    Else
+'        Me.Top = 0
+'        Me.Height = 0
+'    End If
+'End Sub
+
+'=======================================
+'Click in PopUp menu to add/remove marks
+'=======================================
+Public Sub mnuMark_Click(Index As Integer)
+On Error GoTo Err:
+Dim Line&
+Dim VBCP As VBIDE.CodePane
+Dim VBCM As VBIDE.CodeModule
+
+    Set VBCP = VBInstance.ActiveCodePane
+    If (VBCP Is Nothing) Then Exit Sub
+    Set VBCM = VBCP.CodeModule
+    If (VBCM Is Nothing) Then Exit Sub
+    
+    Line& = CalcPicGraphToCodeLine(ClickY, VBCP, VBCM, False)
+    'Sanity check
+    If (Line& < 1) Then Exit Sub
+    
+    'Add the mark
+    If (mnuMark(Index).Checked) Then
+        Call RemoveMark(Index, Line&)
+    Else
+    
+        Select Case Index
+        Case 1
+            VBCM.InsertLines Line&, "'*1"
+        Case 2
+            VBCM.InsertLines Line&, "'*2"
+        Case 3
+            VBCM.InsertLines Line&, "'*3"
+        Case 4
+            VBCM.InsertLines Line&, "'*-"
+        End Select
+    End If
+    
+    'Force refresh
+    TotalLines = -1
+    DrawLines
+        
+    Exit Sub
+Err:
+    Debug.Print ("mnuMark_Click: " & Err.Description)
+End Sub
+
+'=====================================
+'Remove the selected mark
+'=====================================
+Private Sub RemoveMark(Index As Integer, Line&)
+On Error GoTo Err:
+Dim StartLine&, EndLine&, Range&, i&, LookFor$
+Dim VBCP As VBIDE.CodePane
+Dim VBCM As VBIDE.CodeModule
+
+    Set VBCP = VBInstance.ActiveCodePane
+    If (VBCP Is Nothing) Then Exit Sub
+    Set VBCM = VBCP.CodeModule
+    If (VBCM Is Nothing) Then Exit Sub
+    
+    'Calculate the lines arround the mouse
+    Range& = VBCM.CodePane.CountOfVisibleLines / 2
+    StartLine& = Line& - Range&
+    'Sanity check
+    If (StartLine& < 1) Then StartLine& = 1
+    EndLine& = Line& + Range&
+    If (EndLine& > TotalLines) Then EndLine& = TotalLines
+    
+    Select Case (Index)
+    Case 1
+        LookFor$ = "'*1"
+    Case 2
+        LookFor$ = "'*2"
+    Case 3
+        LookFor$ = "'*3"
+    Case 4
+        LookFor$ = "'*-"
+    End Select
+    
+    'Search for the line cause the .Lines method its bugged and return more lines than it should
+    For i = StartLine& To EndLine&
+        If (VBCM.Find(LookFor$, i, 1, i, 5)) Then
+            VBCM.DeleteLines i, 1
+        End If
+    Next i
+    Exit Sub
+Err:
+    Debug.Print ("RemoveMark: " & Err.Description)
+End Sub
+
+'===================================================
+'Check if there is any mark arround the clicked area
+'===================================================
+Private Sub CheckForMarks()
+On Error GoTo Err:
+Dim StartLine&, EndLine&, Range&, St&, En&, Col&
+Dim VBCP As VBIDE.CodePane
+Dim VBCM As VBIDE.CodeModule
+
+    Set VBCP = VBInstance.ActiveCodePane
+    If (VBCP Is Nothing) Then Exit Sub
+    Set VBCM = VBCP.CodeModule
+    If (VBCM Is Nothing) Then Exit Sub
+    
+    'Calculate the lines arround the mouse
+    Range& = VBCM.CodePane.CountOfVisibleLines
+    
+    StartLine& = CalcPicGraphToCodeLine(ClickY, VBCP, VBCM, True)
+    'Sanity check
+    If (StartLine& < 1) Then StartLine& = 1
+    EndLine& = StartLine& + Range&
+    If (EndLine& > TotalLines) Then EndLine& = TotalLines
+    
+    
+    'DEBUG CODE - Draw Range
+'    Me.Caption = "Y: " & ClickY & ",StartLine: " & StartLine & ", EndLine: " & EndLine&
+'    TotalLines& = -1
+'    DrawLines
+'    Dim STY&, ENY&
+'    STY = CalcCodeLineToPicGraph(StartLine&, VBCP, VBCM)
+'    ENY& = CalcCodeLineToPicGraph(EndLine&, VBCP, VBCM)
+'    Me.Line (0, ClickY)-(PicGraph.Width, ClickY), RGB(0, 255, 0)
+'    Me.Line (0, STY)-(PicGraph.Width, STY), RGB(255, 15, 0)
+'    Me.Line (0, ENY&)-(PicGraph.Width, ENY&), RGB(0, 255, 255)
+    '
+    
+    'Disable all checks
+    mnuMark(1).Checked = False
+    mnuMark(2).Checked = False
+    mnuMark(3).Checked = False
+    mnuMark(4).Checked = False
+    
+    'Toggle mnu checks if marks are found
+    St& = StartLine&: En& = EndLine& 'Find may change start/end so I pass a copy in other vars
+    'Check if it analized all the block (so we dont stop on the first discarded one)
+    Do
+        If (VBCM.Find("'*1", St&, Col&, En&, 5)) Then
+            'Aditional check: The marks should be in the beggining of line
+            If (Col& = 1) Then
+                mnuMark(1).Checked = True
+                Exit Do
+            End If
+        End If
+        St& = En& + 1: En& = EndLine&
+    Loop While (St& <= EndLine&)
+    
+    'Find may change start/end so I pass a copy in other vars
+    St& = StartLine&: En& = EndLine&: Col& = 0
+    'Check if it analized all the block (so we dont stop on the first discarded one)
+    Do
+        If (VBCM.Find("'*2", St&, Col&, En&, 5)) Then
+            'Aditional check: The marks should be in the beggining of line
+            If (Col& = 1) Then
+                mnuMark(2).Checked = True
+                Exit Do
+            End If
+        End If
+        St& = En& + 1: En& = EndLine&
+    Loop While (St& <= EndLine&)
+
+    St& = StartLine&: En& = EndLine&: Col& = 0
+    'Check if it analized all the block (so we dont stop on the first discarded one)
+    Do
+        If (VBCM.Find("'*3", St&, Col&, En&, 5)) Then
+            'Aditional check: The marks should be in the beggining of line
+            If (Col& = 1) Then
+                mnuMark(3).Checked = True
+                Exit Do
+            End If
+        End If
+        St& = En& + 1: En& = EndLine&
+    Loop While (St& <= EndLine&)
+    
+    St& = StartLine&: En& = EndLine&: Col& = 0
+    'Check if it analized all the block (so we dont stop on the first discarded one)
+    Do
+        If (VBCM.Find("'*-", St&, Col&, En&, 5)) Then
+            'Aditional check: The marks should be in the beggining of line
+            If (Col& = 1) Then
+                mnuMark(4).Checked = True
+                Exit Do
+            End If
+        End If
+        St& = En& + 1: En& = EndLine&
+    Loop While (St& <= EndLine&)
+    
+    
+    Exit Sub
+Err:
+    Debug.Print ("CheckForMarks: " & Err.Description)
+End Sub
+
+
+'======================================
+'Timer to force refresh when resizing
+'======================================
+Private Sub TimForceRefresh_Timer()
+    'bIgnoreSizeChange = False
+    TimForceRefresh.Enabled = False
+    'Force refresh
+    TotalLines = -1
+    DrawLines
+End Sub
+
+'===================================
+'Redraws after x interval if needed
+'===================================
+Private Sub TimUpdate_Timer()
+    DrawLines
+End Sub
+
+'====================================
+'Create a Graph of the code lines
+'====================================
+Private Sub DrawLines()
+On Error GoTo Err:
+Dim VBCP As VBIDE.CodePane
+Dim VBCM As VBIDE.CodeModule
+Dim LongestTextLine&, color&
+Dim GposY& 'Vertical position when drawing on the Graph
+Dim i&, j!, saux!
+Dim Line$(), LineLen&()
+    
+    Set VBCP = VBInstance.ActiveCodePane
+    If (VBCP Is Nothing) Then Exit Sub
+    Set VBCM = VBCP.CodeModule
+    If (VBCM Is Nothing) Then Exit Sub
+
+    'Check for changes
+    If (VBCM.CountOfLines = TotalLines&) And (CurrentTop& = VBCP.TopLine) Then
+        'Not much need for a full update, we wait for more changes
+        Exit Sub
+    End If
+    
+    'Update the number of lines/position
+'-/> AxioUK
+  If CInt(txtLines.Text) = 0 Then
+    'Debug
+    TotalLines& = VBCM.CountOfLines
+    txtLines.Text = VBCM.CountOfLines
+  ElseIf IsNumeric(txtLines.Text) And CInt(txtLines.Text) > 0 Then
+    If CInt(txtLines.Text) > VBCM.CountOfLines Then
+      TotalLines& = VBCM.CountOfLines
+      txtLines.Text = VBCM.CountOfLines
+    Else
+      TotalLines& = CInt(txtLines.Text)
+    End If
+  Else
+    Exit Sub
+  End If
+'-/>
+ 
+    CurrentTop& = VBCP.TopLine
+    
+    'Clear
+    PicGraph.Cls
+    
+    'If code is empty then clear and exit
+    If (TotalLines <= 0) Then
+        Exit Sub
+    End If
+    
+'-/> AxioUK
+    'Get the initial line...
+    If IsNumeric(txtInit.Text) And CInt(txtInit.Text) > 0 Then
+      If InitLine& >= TotalLines& Then
+        InitLine& = TotalLines& \ 2
+        txtInit.Text = InitLine&
+      Else
+        InitLine& = CInt(txtInit.Text)
+      End If
+    Else
+      InitLine& = 1
+      txtInit.Text = "1"
+    End If
+'-/>
+'Get the lines...
+    Line$ = Split(VBCM.Lines(InitLine&, TotalLines&), vbCrLf)
+    ReDim LineLen&(UBound(Line$))
+
+    'Calculate all the lines
+    For i = 0 To UBound(Line$)
+          LineLen&(i) = Len(Line$(i))
+          'Keep the longest one (not used right now)
+          If (LineLen&(i) > LongestTextLine) Then LongestTextLine = LineLen&(i)
+    Next i
+    
+    'If there is more lines of code than pixels in the picGraph calculate the step of drawing
+    If (TotalLines& > PicGraph.Height) Then
+        'Draw skipping lines (< 1 scale)
+        GraphStep = (TotalLines& - VBCP.CountOfVisibleLines) / (PicGraph.Height - VBCP.CountOfVisibleLines)
+        GraphMult! = 1
+        gDrawWidth& = 1
+    Else
+        'Check if we can draw bigger lines (too few lines of codes and window too big)
+        'Document map has no much use on very small documents.
+        
+        
+        If (PicGraph.Height / TotalLines& < 2) Then
+            'Draw all the lines in 1:1 scale
+            GraphMult! = 1
+            GraphStep! = 1
+            gDrawWidth& = 1
+        Else '(saux! > 2)
+            'Draw all the lines in 2:1 scale
+            GraphMult! = 0.5
+            gDrawWidth& = 2
+            GraphStep = 1
+        End If
+    End If
+    
+    
+    Dim LineStart&, LineEnd&, Special&
+    Dim ForceSkip As Boolean 'To not draw over the full line
+    
+    
+    'Drawing skipping but procesing all lines for marks (slower)
+    PicGraph.DrawMode = 13 'DrawModeConstants.vbCopyPen
+    PicGraph.DrawWidth = 1 'gDrawWidth& removed since v1.3, but keep double spacing between lines
+    For i = 0 To UBound(Line$) - 1 'Step GraphStep
+       
+        'Select color for line
+        color& = SelectColor(Line$(i), 0, LineLen&(i), LineStart&, LineEnd&, Special&)
+        'Special cases
+        '#1 Line in the end Sub
+        If (Special = 1) Then
+            'Draw full line in dark grey...
+            PicGraph.DrawWidth = 2
+            PicGraph.Line (0, GposY&)-(gMaxWidth, GposY&), 1973790
+            PicGraph.DrawWidth = 1
+        ElseIf (Special = 2) Then
+            PicGraph.DrawWidth = 2
+            PicGraph.Line (LineStart&, GposY&)-(LineEnd&, GposY&), color&
+            PicGraph.DrawWidth = 1
+        ElseIf (Special = 3) Then
+            PicGraph.DrawWidth = 2
+            PicGraph.Line (LineStart&, GposY&)-(LineEnd&, GposY&), color&
+            'Add Signal to not draw anything else (we want the line to not overlap)
+            ForceSkip = True
+            PicGraph.DrawWidth = 1
+        End If
+
+        'Skipping enabled check if we need to draw this line
+        If (i = CLng(j)) Then
+            'Check if the line was reserved for a special mark so we dont draw over it
+            If Not (ForceSkip) Then
+                'Draw this line (faster)
+                'PicGraph.Line (LineStart&, GposY&)-(LineEnd&, GposY&), color&
+
+                'Alternative drawing char by char (slower but better representation)
+                Dim n&
+                Dim GposX& 'Horizontal position when drawing on the Graph
+                If (LineLen&(i) <> 0) Then
+                    GposX& = 0
+                   For n = 1 To LineLen&(i)
+                        If (Mid$(Line(i), n, 1) <> " ") Then
+                            PicGraph.PSet (GposX&, GposY&), color&
+                        End If
+                        GposX& = GposX& + 1
+                    Next n
+                End If
+                
+            Else
+                'Remove the flag for the next pixel line
+                ForceSkip = False
+            End If
+            'Move down the Y axis for next drawing and next stepping
+            GposY& = GposY& + gDrawWidth&
+            j = j + GraphStep
+        End If
+
+    Next i
+    
+    
+    'Draw active portrait
+    PicGraph.DrawMode = 12 'DrawModeConstants.vbMergePenNot
+    Dim VisLineTop&, VisLineBot&
+    'VisLineTop& = (VBCP.TopLine / GraphStep!)
+    VisLineTop& = (VBCP.TopLine - InitLine) / GraphStep!
+    VisLineBot& = (VisLineTop& + (VBCP.CountOfVisibleLines / GraphStep!)) '* gDrawWidth&
+    'VisLineTop& = VisLineTop& * gDrawWidth&
+    PicGraph.Line (0, VisLineTop& * gDrawWidth&)-(gMaxWidth, VisLineBot& * gDrawWidth&), 8438015, BF 'RGB(255, 192, 128)
+    
+    'If mouse is not held down we draw here...
+    If Not (bMouseHeldDown) Then
+        'Draw the buffer on the form avoiding flickering
+        UserDocument.PaintPicture PicGraph.Image, 0, 0
+        'In case we have another tooltip system. The current one dont need to do anything to clear
+        'SetTooltip ""
+    Else
+        'Do nothing. The painting is done after looking for a Sub/function name
+    End If
+    
+    UserDocument.Refresh
+    
+    Exit Sub
+Err:
+    Debug.Print ("DrawLines: " & Err.Description)
+End Sub
+
+'==========================================
+'Return the color to draw that line of text
+'And in some cases change the lineLenght
+'==========================================
+'Special:
+'#1 End sub (draw full line)
+'#2 Not skipeable drawing (draw line and mark with diferent colors on same line)
+'#3 Full line marker (avoid any other drawing on that line)
+Private Function SelectColor(ByRef s$, ByRef St&, ByRef En&, ByRef LineStart&, ByRef LineEnd&, ByRef Special&) As Long
+On Error GoTo Err:
+    LineStart& = St&
+    LineEnd& = En&
+    Special = 0
+    SelectColor = cColorText
+    
+    If (s = "") Then
+        'Dont waste time on empty lines
+        Exit Function
+    ElseIf (Left$(s$, 1) = "'") Then
+        'Check for marks
+        If (Mid(s$, 2, 1) = "*") Then
+            'Document map marks ?
+            If (Mid(s$, 3, 1) = "-") Then
+                SelectColor = cColorMark4FullRow& 'Full Line
+                LineEnd& = gMaxWidth
+                Special = 3
+            ElseIf (Mid(s$, 3, 1) = "1") Then
+                SelectColor = cColorMark1&
+                LineStart& = pMarkStartLong
+                LineEnd& = gMaxWidth
+                Special = 2
+            ElseIf (Mid(s$, 3, 1) = "2") Then
+                SelectColor = cColorMark2&
+                LineStart& = pMarkStartLong
+                LineEnd& = gMaxWidth
+                Special = 2
+            ElseIf (Mid(s$, 3, 1) = "3") Then
+                SelectColor = cColorMark3&
+                LineStart& = pMarkStartLong
+                LineEnd& = gMaxWidth
+                Special = 2
+            Else
+                'Standard comment (like '***************
+                SelectColor = cColorComment
+            End If
+        'Check for todo starting in the first pos.
+        ElseIf (InStr(1, s$, "'TODO:", 1) > 0) Then
+            SelectColor = cColorMarkTodo& '
+            LineStart& = pMarkStart
+            LineEnd& = gMaxWidth
+            Special = 2
+        ElseIf (Left$(s$, 6) = "'CSBmk") Then
+            'CodeSmart Bookmarks
+            SelectColor = 10508880 'RGB(80, 90, 160) ' Lila (?)
+            LineStart& = pMarkStart
+            LineEnd& = gMaxWidth
+            Special = 2
+        Else
+            'Standard comment
+            SelectColor = cColorComment
+        End If
+    ElseIf (Left$(s$, 8) = "Private ") Then
+        'If (InStr(s, "Private Sub") > 0) Then
+        '    SelectColor = cColorSubs
+        'ElseIf (InStr(s, "Private Function") > 0) Then
+            SelectColor = cColorSubs
+        'End If
+    ElseIf (Left$(s$, 7) = "Public ") Then
+        'If (InStr(s, "Private Sub") > 0) Then
+        '    SelectColor = cColorSubs
+        'ElseIf (InStr(s, "Private Function") > 0) Then
+            SelectColor = cColorSubs
+        'End If
+    ElseIf (Left$(s, 7) = "End ") Then
+        SelectColor = cColorSubs
+        Special = 1
+    'Check for a TODO in all the line
+    ElseIf (InStr(1, s$, "'TODO:", 1) > 0) Then
+        SelectColor = cColorMarkTodo& '
+        LineStart& = pMarkStart
+        LineEnd& = gMaxWidth
+        Special = 2
+    End If
+    
+    Exit Function
+Err:
+    Debug.Print ("SelectColor: " & Err.Description)
+End Function
+
+
+
+'================================
+'Scroll editor to thumbnail point
+'================================
+Private Sub PicGraphScroll(Y As Single)
+On Error GoTo Err:
+Dim Line&
+    Dim VBCP As VBIDE.CodePane
+    Set VBCP = VBInstance.ActiveCodePane
+    If (VBCP Is Nothing) Then Exit Sub
+    Dim VBCM As VBIDE.CodeModule
+    Set VBCM = VBCP.CodeModule
+    If (VBCM Is Nothing) Then Exit Sub
+    
+    Line& = CalcPicGraphToCodeLine(Y, VBCP, VBCM, False)
+    
+    'Sanity check
+    If (TotalLines < 1) Then Exit Sub
+    If (Line < 1) Then Line = 1
+    
+    'Set the line
+    VBCP.TopLine = Line&
+    
+    'Refresh
+    DrawLines
+    
+    CheckForSubFunction Line&, VBCP, VBCM
+    
+    'Debug
+    'userdocument.Line (0, Y)-(PicGraph.Width, Y), RGB(0, 255, 0)
+    
+    Exit Sub
+Err:
+    Debug.Print ("PicGraphScroll: " & Err.Description)
+End Sub
+
+'========================================================
+'Look for Sub/function name for easier navigation
+'========================================================
+'Not the best way to do it but its fast enough
+Private Sub CheckForSubFunction(Line&, VBCP As Object, VBCM As Object)
+On Error GoTo Err:
+Dim StartLine&, EndLine&, Range&, St&, En&, LookFor$, Col&, ColEnd&
+Dim LineText$, ProcName$, Found As Boolean
+    
+    'Calculate the lines arround the mouse
+    Range& = VBCM.CodePane.CountOfVisibleLines
+    StartLine& = Line&
+    'Sanity check
+    If (StartLine& < 1) Then StartLine& = 1
+    EndLine& = StartLine& + Range&
+    If (EndLine& > TotalLines) Then EndLine& = TotalLines
+    
+    'Look for sub
+    St& = StartLine&: En& = EndLine&: LookFor$ = " Sub "
+    Do
+        If (VBCM.Find(LookFor$, St&, Col&, En&, ColEnd&)) Then
+            'If found a sub/function grab the name
+            If (Col& = 7) Or (Col& = 8) Then
+                LineText$ = VBCM.Lines(St&, 1)
+                ProcName$ = Mid$(LineText$, ColEnd&, InStr(ColEnd&, LineText$, "(") - ColEnd&)
+                Found = True
+                Exit Do
+            End If
+        End If
+        St& = En& + 1: En& = EndLine&
+    Loop While (St& <= EndLine&)
+    
+    If Not (Found) Then
+        St& = StartLine&: En& = EndLine&: LookFor$ = " Function "
+        Do
+            If (VBCM.Find(LookFor$, St&, Col&, En&, ColEnd&)) Then
+                'If found a sub/function grab the name
+                If (Col& = 7) Or (Col& = 8) Then
+                    LineText$ = VBCM.Lines(St&, 1)
+                    ProcName$ = Mid$(LineText$, ColEnd&, InStr(ColEnd&, LineText$, "(") - ColEnd&)
+                    Found = True
+                    Exit Do
+                End If
+            End If
+            St& = En& + 1: En& = EndLine&
+        Loop While (St& <= EndLine&)
+    End If
+    
+    If (bMouseHeldDown) Then
+        SetTooltip ProcName$, StartLine&, Range&
+    Else
+        'In case we have another tooltip system. The current one dont need to do anything to clear
+        SetTooltip ""
+    End If
+
+    Exit Sub
+Err:
+    Debug.Print ("CheckForSubFunction: " & Err.Description)
+End Sub
+
+Private Sub SetTooltip(Tit$, Optional StartLine&, Optional Range&)
+On Error GoTo Err:
+Dim PosY&, PosX& 'Position for drawing
+Dim EndLine& 'Last visible line displayed
+Dim STY&, ENY&, Diff& 'graphic position of the area displayed
+Dim TextW& 'width of drawed text
+
+    If (Tit$ = "") Then
+        'Draw the buffer on the form avoiding flickering
+        UserDocument.PaintPicture PicGraph.Image, 0, 0
+    Else
+        EndLine& = StartLine& + Range&
+        If (EndLine& > TotalLines) Then
+            EndLine = TotalLines
+            StartLine& = TotalLines - Range
+        End If
+        STY = CalcCodeLineToPicGraph(StartLine&)
+        ENY& = CalcCodeLineToPicGraph(StartLine& + Range&)
+        Diff& = ENY - STY
+            
+        'PicGraph.Font.Name = "Segoe Condensed"
+        'PicGraph.Font.Size = "12"
+        
+        'Align left
+        'PosX = 2
+        
+        'Align Right
+        TextW& = PicGraph.TextWidth(Tit$) + 10
+        PosX = gMaxWidth - TextW&
+        If (PosX < 2) Then PosX = 2
+        
+        PosY& = STY - (PicGraph.TextHeight(Tit$) + 2)
+        If (PosY& > STY + (Diff& / 2)) Then PosY& = STY + (Diff& / 2)
+        If (PosY& < Diff& / 2) Then
+            PosY& = ENY& + 3
+        Else
+        End If
+        
+        'Shadow
+        PicGraph.CurrentX = PosX - 2
+        PicGraph.CurrentY = PosY + 1
+        PicGraph.ForeColor = vbBlack
+        PicGraph.Print Tit$
+        'Shadow2
+        PicGraph.CurrentX = PosX
+        PicGraph.CurrentY = PosY + 2
+        PicGraph.ForeColor = vbBlack
+        PicGraph.Print Tit$
+        'Shadow3
+        PicGraph.CurrentX = PosX + 2
+        PicGraph.CurrentY = PosY + 1
+        PicGraph.ForeColor = vbBlack
+        PicGraph.Print Tit$
+        'Text
+        PicGraph.CurrentX = PosX
+        PicGraph.CurrentY = PosY
+        PicGraph.ForeColor = vbYellow
+        PicGraph.Print Tit$
+        
+        'Draw the buffer on the form avoiding flickering
+        UserDocument.PaintPicture PicGraph.Image, 0, 0
+    End If
+    
+    Exit Sub
+Err:
+    Debug.Print ("SetTooltip: " & Err.Description)
+End Sub
+
+'===================================================================
+'Calculate the line of code corresponding to Y px from Document map
+'===================================================================
+Private Function CalcPicGraphToCodeLine(ByVal Y!, VBCP As Object, VBCM As Object, Optional bCentered As Boolean) As Long
+On Error GoTo Err:
+    'In case we are doubling/skipping lines
+    Y = Y * GraphMult * GraphStep
+    
+    'Aim for the center
+    If (bCentered) Then
+        Y = Y - (VBCP.CountOfVisibleLines / 2)
+    End If
+    
+' Debug!
+' MsgBox "VBCP.CountOfVisibleLines:" & VBCP.CountOfVisibleLines & vbLf & "VBCM.CountOfLines:" & VBCM.CountOfLines
+    
+    'Check if we clicked past the code
+    If (Y + VBCP.CountOfVisibleLines > VBCM.CountOfLines) Then
+        Y = VBCM.CountOfLines - (VBCP.CountOfVisibleLines - 2)
+    End If
+
+    CalcPicGraphToCodeLine = CLng(Y) + InitLine
+    Exit Function
+Err:
+    Debug.Print ("CalcPicGraphToCodeLine: " & Err.Description)
+End Function
+
+
+'================================================================
+'Calculate the Y px in Document Map for the line of code
+'================================================================
+Private Function CalcCodeLineToPicGraph(ByVal Line&, Optional VBCP As Object, Optional VBCM As Object) As Long
+On Error GoTo Err:
+Dim Y As Single
+    If (VBCP Is Nothing) Then
+        Set VBCP = VBInstance.ActiveCodePane
+        Set VBCM = VBCP.CodeModule
+    End If
+    
+    'In case we are doubling/skipping lines
+    Y = (Line * gDrawWidth&) / GraphStep
+    
+    CalcCodeLineToPicGraph = CLng(Y)
+    Exit Function
+Err:
+    Debug.Print ("CalcCodeLineToPicGraph: " & Err.Description)
+End Function
+
+
